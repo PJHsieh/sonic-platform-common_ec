@@ -6,6 +6,7 @@
 #  - InnoDisk
 #  - StorFly
 #  - Virtium
+#  - WDC
 
 try:
     import re
@@ -134,8 +135,17 @@ class SsdUtil(SsdBase):
         self.serial = self._parse_re('Serial Number:\s*(.+?)\n', self.ssd_info)
         self.firmware = self._parse_re('Firmware Version:\s*(.+?)\n', self.ssd_info)
         try:
-            if ("SDASN8Y1T00" == self.model.split(' ')[3]):
+            product_number = self.model.split(' ')[3]
+            if "1T00" in product_number:
                 self.nand_endurance = 400 * 1000
+            elif "512G" in product_number:
+                self.nand_endurance = 200 * 1000
+            elif "256G" in product_number:
+                self.nand_endurance = 100 * 1000
+            else:
+                self.nand_endurance = NOT_AVAILABLE
+
+            if (self.nand_endurance != NOT_AVAILABLE):
                 parsed_total_lbas_written = self._parse_re('Total_LBAs_Written\s*.*Offline\s*-\s*\d*', self.vendor_ssd_info)
                 total_lbas_written = int(self._parse_re('\s{7}\d*', parsed_total_lbas_written).split(' ')[7])
                 self.health = int(100.0 - (total_lbas_written * 100) / self.nand_endurance)
