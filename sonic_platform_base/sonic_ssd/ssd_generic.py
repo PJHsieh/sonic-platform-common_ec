@@ -18,6 +18,7 @@ except ImportError as e:
 SMARTCTL = "smartctl {} -a"
 INNODISK = "iSmart -d {}"
 VIRTIUM  = "SmartCmd -m {}"
+TRANSCEND = "scopepro -all {}"
 
 NOT_AVAILABLE = "N/A"
 
@@ -26,6 +27,8 @@ INNODISK_HEALTH_ID = 169
 INNODISK_TEMPERATURE_ID = 194
 SWISSBIT_HEALTH_ID = 248
 SWISSBIT_TEMPERATURE_ID = 194
+TRANSCEND_HEALTH_ID = 169
+TRANSCEND_TEMPERATURE_ID = 194
 
 class SsdUtil(SsdBase):
     """
@@ -48,6 +51,7 @@ class SsdUtil(SsdBase):
             "StorFly"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
             "Virtium"  : { "utility" : VIRTIUM,  "parser" : self.parse_virtium_info },
             "Swissbit" : { "utility" : SMARTCTL, "parser" : self.parse_swissbit_info },
+            "Transcend" : { "utility" : TRANSCEND, "parser" : self.parse_transcend_info },
             "WDC"      : { "utility" : SMARTCTL, "parser" : self.parse_wdc_ssd_info }
         }
 
@@ -86,6 +90,8 @@ class SsdUtil(SsdBase):
             return 'Virtium'
         elif self.model.startswith('SFS'):
             return 'Swissbit'
+        elif self.model.startswith('TS'):
+            return 'Transcend'
         elif self.model.startswith(('EPM3750', 'MPT160')):
             return 'Phison'
         else:
@@ -207,6 +213,22 @@ class SsdUtil(SsdBase):
                 self.temperature = NOT_AVAILABLE
             else:
                 self.temperature = temp_raw.split()[-3]
+
+    def parse_transcend_info(self):
+        if self.vendor_ssd_info:
+            self.model = self._parse_re('Model\s*:(.+?)\s*\n', self.vendor_ssd_info)
+            self.serial = self._parse_re('Serial No\s*:(.+?)\s*\n', self.vendor_ssd_info)
+            self.firmware = self._parse_re('FW Version\s*:(.+?)\s*\n', self.vendor_ssd_info)
+            health_raw = self._parse_re('{}\s*(.+?)\n'.format(hex(TRANSCEND_HEALTH_ID).upper()[2:]), self.vendor_ssd_info) #169 -> A9
+            if health_raw == NOT_AVAILABLE:
+                self.health = NOT_AVAILABLE
+            else:
+                self.health = health_raw.split()[-1]
+            temp_raw = self._parse_re('{}\s*(.+?)\n'.format(hex(TRANSCEND_TEMPERATURE_ID).upper()[2:]), self.vendor_ssd_info) #194 -> C2
+            if temp_raw == NOT_AVAILABLE:
+                self.temperature = NOT_AVAILABLE
+            else:
+                self.temperature = temp_raw.split()[-1]
 
     def fetch_vendor_ssd_info(self, diskdev, model):
         self.vendor_ssd_info = self._execute_shell(self.vendor_ssd_utility[model]["utility"].format(diskdev))
